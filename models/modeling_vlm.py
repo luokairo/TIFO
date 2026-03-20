@@ -32,7 +32,8 @@ from transformers.configuration_utils import PretrainedConfig
 import torch.nn as nn
 from .clip_encoder import CLIPVisionTower
 from .projector import MlpProjector
-from ..utils.tifo_utils import SlotsAdapter, calculate_div_loss
+import torch.nn.functional as F
+from ..utils.tifo_utils import SlotsAdapter, calculate_div_loss, pack_kv
 
 class vision_head(torch.nn.Module):
     def __init__(self, params):
@@ -192,7 +193,7 @@ class TextAdapter(nn.Module):
     ):
         super().__init__()
 
-        if self.out_dim is None:
+        if out_dim is None:
             out_dim = input_dim
 
         self.use_residual = use_residual
@@ -271,7 +272,14 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         self.language_model = LlamaForCausalLM(language_config)
 
         # for tifo
-        self.vision_slots_adapter = SlotsAdapter(vision_config.params.n_embed)
+        self.vision_slots_adapter = SlotsAdapter(vision_config.params.n_embed, num_slots=6)
+        self.text_slots_adapter = SlotsAdapter(vision_config.params.n_embed, num_slots=6)
+        self.text_conductor = TextAdapter(
+            input_dim=vision_config.params.n_embed,
+            hidden_dim=vision_config.params.n_embed // 2,
+            out_dim=vision_config.params.n_embed,
+
+        )
        
 
     def prepare_inputs_embeds(
@@ -318,6 +326,8 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
     def forward(self, input_ids, attention_mask, labels=None, image1=None, image_seq_mask=None, image2=None, task_type=0, front=None, end=None, use_attn=False):
         if task_type == 0:
             input_embeds = self.language_model.get_input_embeddings()(input_ids)
+            # tifo: conduct information
+            input_embeds = self.text_conductor(input_embeds)
             image_embeds, labels = self.prepare_embedding(image1)
             input_embeds = torch.cat((input_embeds, image_embeds), dim=1)
             B, L = image_embeds.shape[0], image_embeds.shape[1]
@@ -413,10 +423,47 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
                         full_attn_loss = full_attn_loss + attn_loss * 0
             loss_attn = full_attn_loss / (len(full_attention) * len(full_attention[2]))
             loss = loss_ntp + 10 * loss_attn
+        elif task_type == 2:
+            und_image_embeds, _ = self.prepare_embedding(image1, gen_image=False)
+            input_embeds = self.language_model.get_input_embeddings()(input_ids)
+            # tifo: conduct information
+            input_embeds = self.text_conductor(input_embeds)
+            text_ca_kv = pack_kv(input_embeds)          # input_embeds: [B, Lt, C]
+            vision_ca_kv = pack_kv(und_image_embeds)    # und_image_embeds: [B, Lv, C]
+
+            text_slots = self.text_slots_adapter(text_ca_kv)        # [B, K, C]
+            vision_slots = self.vision_slots_adapter(vision_ca_kv)  # [B, K, C]
+
+            text_slots_norm = F.normalize(text_slots, dim=-1)
+            vision_slots_norm = F.normalize(vision_slots.detach(), dim=-1)
+            loss_div = calculate_div_loss(text_slots)
+
+            loss_slot = 1 - (text_slots_norm * vision_slots_norm).sum(dim=-1).mean()
+
+            image_embeds, labels = self.prepare_embedding(image1)
+            input_embeds = torch.cat((input_embeds, image_embeds), dim=1)
+            B, L = image_embeds.shape[0], image_embeds.shape[1]
+
+            attention_mask = torch.cat((attention_mask, torch.ones((B, L)).long().to(attention_mask.device)), dim=1)
+            label_len = labels.shape[-1]
+            outputs = self.language_model.model(inputs_embeds=input_embeds, 
+                                                    attention_mask=attention_mask, output_attentions=True, return_dict_in_generate=True)
+            last_hidden_state = outputs.last_hidden_state
+            full_attention = outputs.attentions
+
+            image_logits = self.gen_head(last_hidden_state)
+            visual_vocab_size = image_logits.shape[-1]
+            shift_logits = image_logits[..., -1-label_len:-1, :].contiguous()
+            loss_ntp = self.loss_fct(shift_logits.view(-1, visual_vocab_size), labels.view(-1))
+
+            loss = loss_ntp + 0.2 * loss_slot + 0.1 * loss_div
+
+
+
         else:
             raise NotImplementedError
             
-        return loss, loss_attn
+        return loss
 
     def prepare_embedding(
         self,

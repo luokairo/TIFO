@@ -1,3 +1,5 @@
+from email.policy import strict
+
 import torch
 import functools
 import numpy as np
@@ -11,6 +13,17 @@ from trainer.utils import build_optimizer
 from dataset.t2i_dataset import TextToImageDataloader
 from trainer.utils import TrainerBase, print_model_param_num
 from models import VLChatProcessor, MultiModalityCausalLM, MultiModalityConfig
+import torch.nn as nn
+
+
+def init_tifo(module):
+    if isinstance(module, nn.Linear):
+        nn.init.xavier_uniform_(module.weight)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.LayerNorm):
+        nn.init.ones_(module.weight)
+        nn.init.zeros_(module.bias)
 
 def repeater(data_loader):
     for i, loader in enumerate(repeat(data_loader)):
@@ -22,27 +35,38 @@ def repeater(data_loader):
 
 def train_setup(model: MultiModalityCausalLM):
     for n, p in model.language_model.named_parameters():
-        p.requires_grad = True
-    model.language_model.train()
+        p.requires_grad = False
+    model.language_model.eval()
     model.language_model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
     for n, p in model.gen_embed.named_parameters():
-        p.requires_grad = True
-    model.gen_embed.train()
+        p.requires_grad = False
+    model.gen_embed.eval()
     for n, p in model.gen_head.named_parameters():
-        p.requires_grad = True
-    model.gen_head.train()
+        p.requires_grad = False
+    model.gen_head.eval()
     for n, p in model.gen_aligner.named_parameters():
-        p.requires_grad = True
-    model.gen_aligner.train()
+        p.requires_grad = False
+    model.gen_aligner.eval()
     for n, p in model.aligner.named_parameters():
-        p.requires_grad = True
-    model.aligner.train()
+        p.requires_grad = False
+    model.aligner.eval()
     for n, p in model.vision_model.named_parameters():
         p.requires_grad = False
     model.vision_model.eval()
     for n, p in model.gen_vision_model.named_parameters():
         p.requires_grad = False
     model.gen_vision_model.eval()
+    # only training tifo's module
+    for n, p in model.vision_slots_adapter.named_parameters():
+        p.requires_grad = True
+    model.vision_slots_adapter.train()
+    for n, p in model.text_slots_adapter.named_parameters():
+        p.requires_grad = True
+    model.text_slots_adapter.train()
+    for n, p in model.text_conductor.named_parameters():
+        p.requires_grad = True
+    model.text_conductor.train()
+
 
 def find_latest_directory(base_path):
     if not os.path.exists(base_path):
@@ -80,7 +104,10 @@ class TextToImageTrainer(TrainerBase):
         self.search_path = f'{self.cfg.common.pre_path}/configs/t2i_generation.yml'
         self.vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(self.cfg.model.processor_path)
         self.tokenizer = self.vl_chat_processor.tokenizer
-        self.model_before_ddp = MultiModalityCausalLM.from_pretrained(cfg.model.model_path, trust_remote_code=True).to(torch.bfloat16).cuda()
+        self.model_before_ddp = MultiModalityCausalLM.from_pretrained(cfg.model.model_path, trust_remote_code=True, strict=False).to(torch.bfloat16).cuda()
+        self.model_before_ddp.text_conductor.apply(init_tifo)
+        self.model_before_ddp.text_slots_adapter.apply(init_tifo)
+        self.model_before_ddp.vision_slots_adapter.apply(init_tifo)
         train_setup(self.model_before_ddp)
         
         self.pretrain_model = find_latest_directory(self.search_path)
@@ -154,6 +181,10 @@ class TextToImageTrainer(TrainerBase):
         self.meters["loss3"] = AverageMeter(self.cfg.common.log_interval, fstr="%.5f")
         self.meters["loss4"] = AverageMeter(self.cfg.common.log_interval, fstr="%.5f")
         self.meters["lr"] = AverageMeter(self.cfg.common.log_interval, fstr="%.3e")
+
+    
+
+    
 
     def get_next_data(self):
         x = np.array(range(len(self._data_loader_iter)))

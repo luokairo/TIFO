@@ -24,6 +24,24 @@ def get_dropout_layer(p):
     return nn.Dropout(p, inplace=True) if p > 0 else nn.Identity()
 
 
+def pack_kv(x):
+    """
+    x: [B, L, C]
+    return:
+        kv_compact: [B*L, C]
+        cu_seqlens_k: [B+1]
+        max_seqlen_k: L
+    """
+    B, L, C = x.shape
+    kv_compact = x.reshape(B * L, C).contiguous()
+    cu_seqlens_k = torch.arange(
+        0, (B + 1) * L, L,
+        dtype=torch.int32,
+        device=x.device
+    )
+    max_seqlen_k = L
+    return kv_compact, cu_seqlens_k, max_seqlen_k
+
 class CrossAttention(nn.Module):
     def __init__(
         self, for_tifo=True, num_slots=6, embed_dim=768, kv_dim=4096, num_heads=12,
@@ -157,10 +175,17 @@ class SlotsAdapter(nn.Module):
 
 # 让每个slot不要太像
 
-def calculate_div_loss(output):
-    slots = output
+def calculate_div_loss(slots):
+    # slots: [B, K, C]
     slots_norm = F.normalize(slots, dim=-1)
-    sim = torch.matmul(slots_norm, slots_norm.transpose(-1, -2))  # [B, K, K]
-    div_loss = sim.mean()  # 或者只惩罚非对角
 
+    sim = torch.matmul(slots_norm, slots_norm.transpose(-1, -2))  # [B, K, K]
+
+    B, K, _ = sim.shape
+    eye = torch.eye(K, device=sim.device).unsqueeze(0)  # [1, K, K]
+
+    # 只惩罚非对角
+    off_diag = sim * (1 - eye)
+
+    div_loss = (off_diag ** 2).mean()
     return div_loss
