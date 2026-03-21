@@ -31,7 +31,7 @@ parser.add_argument('--ckpt_path', type=str, required=True)
 parser.add_argument('--prompt', type=str, required=True)
 args = parser.parse_args()
 
-model_path = "deepseek-ai/Janus-Pro-7B"
+model_path = "/inspire/hdd/project/exploration-topic/public/downloaded_ckpts/Janus/Janus-Pro-7B"
 vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(model_path, attn_implementation="eager")
 tokenizer = vl_chat_processor.tokenizer
 
@@ -42,12 +42,20 @@ finetune_ckpt = torch.load(args.ckpt_path)
 vl_gpt.load_state_dict(finetune_ckpt)
 vl_gpt = vl_gpt.to(torch.bfloat16).cuda().eval()
 
+# conversation = [
+#     {
+#         "role": "User",
+#         "content": args.prompt,
+#     },
+#     {"role": "Assistant", "content": ""},
+# ]
+
 conversation = [
     {
-        "role": "User",
+        "role": "<|User|>",
         "content": args.prompt,
     },
-    {"role": "Assistant", "content": ""},
+    {"role": "<|Assistant|>", "content": ""},
 ]
 
 sft_format = vl_chat_processor.apply_sft_template_for_multi_turn_prompts(
@@ -79,6 +87,7 @@ def generate(
             tokens[i, 1:-1] = vl_chat_processor.pad_id
 
     inputs_embeds = mmgpt.language_model.get_input_embeddings()(tokens)
+    inputs_embeds = mmgpt.text_conductor(inputs_embeds)
     generated_tokens = torch.zeros((parallel_size, image_token_num_per_image), dtype=torch.int).cuda()
     for i in range(image_token_num_per_image):
         outputs = mmgpt.language_model.model(inputs_embeds=inputs_embeds, use_cache=True, past_key_values=outputs.past_key_values if i != 0 else None)

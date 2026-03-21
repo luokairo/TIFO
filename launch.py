@@ -6,7 +6,7 @@ import multiprocessing
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--backend", type=str, default="nccl")
-    parser.add_argument("--init_method", type=str, default="tcp://127.0.0.1:51683")
+    parser.add_argument("--init_method", type=str, default="tcp://127.0.0.1:51693")
     parser.add_argument("--world_size", type=int, default=1)
     parser.add_argument("--args_yml_fn", type=str, default="configs/t2i_generation.yml")
     args, _ = parser.parse_known_args()
@@ -23,4 +23,3 @@ if __name__ == "__main__":
         if rank < ngpus_per_node - 1:
             cmd += " &"
         os.system(cmd)
-

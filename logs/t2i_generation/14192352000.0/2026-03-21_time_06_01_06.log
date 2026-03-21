@@ -1,0 +1,91 @@
+2026-03-21 06:02:39,799:INFO:Use bfloat16 training...
+2026-03-21 06:02:40,629:INFO:Args:
+2026-03-21 06:02:40,629:INFO:--> backend: nccl
+2026-03-21 06:02:40,629:INFO:--> init_method: tcp://127.0.0.1:51693
+2026-03-21 06:02:40,629:INFO:--> rank: 0
+2026-03-21 06:02:40,629:INFO:--> local_rank: 0
+2026-03-21 06:02:40,629:INFO:--> world_size: 8
+2026-03-21 06:02:40,629:INFO:--> yml_path: /inspire/hdd/project/exploration-topic/public/ent/TIFO/configs/t2i_generation.yml
+2026-03-21 06:02:40,629:INFO:--> pretrained_path: None
+2026-03-21 06:02:40,629:INFO:--> load_optimizer: 0
+2026-03-21 06:02:40,629:INFO:--> caption_shuffle_percent: 0
+2026-03-21 06:02:40,629:INFO:--> train_data_index: 0
+2026-03-21 06:02:40,629:INFO:--> local_shuffle_type: None
+2026-03-21 06:02:40,629:INFO:--> zip_max_split: 1024
+2026-03-21 06:02:40,629:INFO:--> visual_memory_format: contiguous_format
+2026-03-21 06:02:40,629:INFO:--> show_model_arch: 0
+2026-03-21 06:02:40,629:INFO:--> output_path: ./exp
+2026-03-21 06:02:40,629:INFO:--> log_interval: 100
+2026-03-21 06:02:40,630:INFO:--> save_per_epochs: 0.5
+2026-03-21 06:02:40,630:INFO:--> max_epochs: 3
+2026-03-21 06:02:40,630:INFO:--> warmup_epochs: 0.5
+2026-03-21 06:02:40,630:INFO:--> lr_scheduler: cosine
+2026-03-21 06:02:40,630:INFO:--> DATALOADER: CLIP_zip_dataloader
+2026-03-21 06:02:40,630:INFO:--> mode: trian
+2026-03-21 06:02:40,630:INFO:--> resume: 0
+2026-03-21 06:02:40,630:INFO:--> prefetch_factor: 2
+2026-03-21 06:02:40,630:INFO:--> lr: 0.0008
+2026-03-21 06:02:40,630:INFO:--> weight_decay: 0.0
+2026-03-21 06:02:40,630:INFO:--> label_smooth: 0.1
+2026-03-21 06:02:40,630:INFO:--> image_size: 224
+2026-03-21 06:02:40,630:INFO:--> num_workers: 6
+2026-03-21 06:02:40,630:INFO:--> tokenizer_type: bert_chinese
+2026-03-21 06:02:40,630:INFO:--> fix_inputs: 0
+2026-03-21 06:02:40,630:INFO:--> profile: 0
+2026-03-21 06:02:40,630:INFO:--> profile_skip_first: 5
+2026-03-21 06:02:40,630:INFO:--> profile_wait: 5
+2026-03-21 06:02:40,630:INFO:--> profile_warmup: 2
+2026-03-21 06:02:40,630:INFO:--> profile_active: 3
+2026-03-21 06:02:40,630:INFO:--> profile_repeat: 5
+2026-03-21 06:02:40,630:INFO:--> profile_step: 150
+2026-03-21 06:02:40,630:INFO:--> CRITERION: clip_loss_gather_parallel
+2026-03-21 06:02:40,631:INFO:--> beta1: 0.9
+2026-03-21 06:02:40,631:INFO:--> beta2: 0.96
+2026-03-21 06:02:40,631:INFO:--> embed_dim: 512
+2026-03-21 06:02:40,631:INFO:--> context_length: 80
+2026-03-21 06:02:40,631:INFO:--> eval_first: 0
+2026-03-21 06:02:40,631:INFO:--> eval_yml_path: 
+2026-03-21 06:02:40,631:INFO:--> do_multilabeling: 0
+2026-03-21 06:02:40,631:INFO:--> min_recall: 0.8
+2026-03-21 06:02:40,631:INFO:--> exclude: []
+2026-03-21 06:02:40,631:INFO:--> test_plan: []
+2026-03-21 06:02:40,631:INFO:--> thres: 0
+2026-03-21 06:02:40,631:INFO:--> ema: 0
+2026-03-21 06:02:40,631:INFO:--> ema_decay: 0.999
+2026-03-21 06:02:40,631:INFO:--> ema_multi_tensor_apply_chunk_size: 10000
+2026-03-21 06:02:40,631:INFO:--> user_id: 
+2026-03-21 06:02:40,631:INFO:--> deepspeed: False
+2026-03-21 06:02:40,631:INFO:--> deepspeed_config: None
+2026-03-21 06:02:40,631:INFO:--> deepscale: False
+2026-03-21 06:02:40,631:INFO:--> deepscale_config: None
+2026-03-21 06:02:40,631:INFO:--> DEVICE_TYPE: gpu
+2026-03-21 06:02:40,631:INFO:--> common: {'output_path': '/inspire/hdd/project/exploration-topic/public/ent/TIFO/ckpt/t2i_generation/14192352000.0', 'pre_path': '/inspire/hdd/project/exploration-topic/public/ent/TIFO/ckpt', 'log_path': '/inspire/hdd/project/exploration-topic/public/ent/TIFO/logs/t2i_generation/14192352000.0', 'save_per_iters': 1000, 'use_bf16': 1, 'use_fp16': 0, 'use_fsdp': 1, 'use_zero': 0, 'random_seed': 1024, 'log_interval': 1, 'machines': 1, 'task': 't2i'}
+2026-03-21 06:02:40,631:INFO:--> optimize: {'max_epochs': 2, 'warmup_epochs': 0.1, 'lr': 2e-05, 'lr_scheduler': 'cosine', 'optimizer': 'adamw', 'weight_decay': 0.05, 'betas': [0.9, 0.95], 'eps': 1e-06}
+2026-03-21 06:02:40,631:INFO:--> model: {'model_path': '/inspire/hdd/project/exploration-topic/public/downloaded_ckpts/Janus/Janus-Pro-7B', 'processor_path': '/inspire/hdd/project/exploration-topic/public/downloaded_ckpts/Janus/Janus-Pro-7B'}
+2026-03-21 06:02:40,636:INFO:--> dataloader: {'und_data_path': '/inspire/hdd/project/exploration-topic/public/ent/download_dataset/sam-llava-55k/data', 'gen_data_path': '/inspire/hdd/project/exploration-topic/public/ent/download_dataset/sam-llava-55k/data', 'num_workers': 4, 'prefetch_factor': 4, 'sampler_shuffle': False, 'tasks': [0, 1], 'train': {'use_local_shuffle': True, 'task1': {'batch_size': 8, 'sample_ratio': 10}, 'task2': {'batch_size': 8, 'sample_ratio': 0}}}
+2026-03-21 06:02:40,636:INFO:--> dataloader_len: 829
+2026-03-21 06:02:40,636:INFO:
+2026-03-21 06:02:40,644:INFO:Run configs dump to /inspire/hdd/project/exploration-topic/public/ent/TIFO/ckpt/t2i_generation/14192352000.0/run.yml
+2026-03-21 06:02:46,268:INFO:Iter: [1/829]	Epoch: [0/2 (1658)]	batch_time 5.623 (5.623)	loss1 9.42878 (9.42878)	grad_norm1 35.22383 (35.22383)	loss2 0.98414 (0.98414)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 1.229e-06 (1.229e-06)	RemainingTime 2:35:23 (2026-03-21 08:38:08)	FPS  11.382
+2026-03-21 06:02:47,879:INFO:Iter: [2/829]	Epoch: [0/2 (1658)]	batch_time 1.611 (1.611)	loss1 9.42710 (9.42710)	grad_norm1 26.99965 (26.99965)	loss2 0.98808 (0.98808)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 1.458e-06 (1.458e-06)	RemainingTime 0:44:30 (2026-03-21 06:47:17)	FPS  39.718
+2026-03-21 06:02:49,913:INFO:Iter: [3/829]	Epoch: [0/2 (1658)]	batch_time 2.033 (2.033)	loss1 9.46613 (9.46613)	grad_norm1 33.06699 (33.06699)	loss2 0.98273 (0.98273)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 1.688e-06 (1.688e-06)	RemainingTime 0:56:07 (2026-03-21 06:58:56)	FPS  31.480
+2026-03-21 06:02:51,717:INFO:Iter: [4/829]	Epoch: [0/2 (1658)]	batch_time 1.803 (1.803)	loss1 9.50410 (9.50410)	grad_norm1 31.54705 (31.54705)	loss2 0.98194 (0.98194)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 1.917e-06 (1.917e-06)	RemainingTime 0:49:45 (2026-03-21 06:52:36)	FPS  35.487
+2026-03-21 06:02:53,334:INFO:Iter: [5/829]	Epoch: [0/2 (1658)]	batch_time 1.617 (1.617)	loss1 9.41954 (9.41954)	grad_norm1 30.35759 (30.35759)	loss2 0.98661 (0.98661)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 2.146e-06 (2.146e-06)	RemainingTime 0:44:34 (2026-03-21 06:47:27)	FPS  39.586
+2026-03-21 06:02:54,944:INFO:Iter: [6/829]	Epoch: [0/2 (1658)]	batch_time 1.610 (1.610)	loss1 9.56466 (9.56466)	grad_norm1 29.66503 (29.66503)	loss2 0.98901 (0.98901)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 2.375e-06 (2.375e-06)	RemainingTime 0:44:21 (2026-03-21 06:47:15)	FPS  39.757
+2026-03-21 06:02:56,555:INFO:Iter: [7/829]	Epoch: [0/2 (1658)]	batch_time 1.611 (1.611)	loss1 9.48288 (9.48288)	grad_norm1 29.14684 (29.14684)	loss2 0.98348 (0.98348)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 2.604e-06 (2.604e-06)	RemainingTime 0:44:21 (2026-03-21 06:47:18)	FPS  39.725
+2026-03-21 06:02:58,167:INFO:Iter: [8/829]	Epoch: [0/2 (1658)]	batch_time 1.611 (1.611)	loss1 9.43007 (9.43007)	grad_norm1 19.40721 (19.40721)	loss2 0.99114 (0.99114)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 2.834e-06 (2.834e-06)	RemainingTime 0:44:20 (2026-03-21 06:47:18)	FPS  39.725
+2026-03-21 06:02:59,776:INFO:Iter: [9/829]	Epoch: [0/2 (1658)]	batch_time 1.608 (1.608)	loss1 9.50362 (9.50362)	grad_norm1 22.23385 (22.23385)	loss2 0.99647 (0.99647)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 3.063e-06 (3.063e-06)	RemainingTime 0:44:14 (2026-03-21 06:47:13)	FPS  39.792
+2026-03-21 06:03:01,394:INFO:Iter: [10/829]	Epoch: [0/2 (1658)]	batch_time 1.618 (1.618)	loss1 9.48507 (9.48507)	grad_norm1 32.60880 (32.60880)	loss2 0.98204 (0.98204)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 3.292e-06 (3.292e-06)	RemainingTime 0:44:29 (2026-03-21 06:47:30)	FPS  39.544
+2026-03-21 06:03:03,008:INFO:Iter: [11/829]	Epoch: [0/2 (1658)]	batch_time 1.613 (1.613)	loss1 9.50371 (9.50371)	grad_norm1 30.18869 (30.18869)	loss2 0.98214 (0.98214)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 3.521e-06 (3.521e-06)	RemainingTime 0:44:19 (2026-03-21 06:47:21)	FPS  39.668
+2026-03-21 06:03:04,669:INFO:Iter: [12/829]	Epoch: [0/2 (1658)]	batch_time 1.661 (1.661)	loss1 9.45540 (9.45540)	grad_norm1 19.38331 (19.38331)	loss2 0.99208 (0.99208)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 3.750e-06 (3.750e-06)	RemainingTime 0:45:35 (2026-03-21 06:48:39)	FPS  38.539
+2026-03-21 06:03:06,339:INFO:Iter: [13/829]	Epoch: [0/2 (1658)]	batch_time 1.670 (1.670)	loss1 9.38478 (9.38478)	grad_norm1 24.65199 (24.65199)	loss2 0.98244 (0.98244)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 3.979e-06 (3.979e-06)	RemainingTime 0:45:48 (2026-03-21 06:48:54)	FPS  38.332
+2026-03-21 06:03:07,948:INFO:Iter: [14/829]	Epoch: [0/2 (1658)]	batch_time 1.608 (1.608)	loss1 9.43388 (9.43388)	grad_norm1 31.53512 (31.53512)	loss2 0.98283 (0.98283)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 4.209e-06 (4.209e-06)	RemainingTime 0:44:05 (2026-03-21 06:47:13)	FPS  39.799
+2026-03-21 06:03:09,561:INFO:Iter: [15/829]	Epoch: [0/2 (1658)]	batch_time 1.613 (1.613)	loss1 9.46443 (9.46443)	grad_norm1 16.39775 (16.39775)	loss2 0.99667 (0.99667)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 4.438e-06 (4.438e-06)	RemainingTime 0:44:12 (2026-03-21 06:47:21)	FPS  39.672
+2026-03-21 06:03:11,180:INFO:Iter: [16/829]	Epoch: [0/2 (1658)]	batch_time 1.618 (1.618)	loss1 9.31674 (9.31674)	grad_norm1 22.08599 (22.08599)	loss2 0.98100 (0.98100)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 4.667e-06 (4.667e-06)	RemainingTime 0:44:18 (2026-03-21 06:47:29)	FPS  39.553
+2026-03-21 06:03:12,802:INFO:Iter: [17/829]	Epoch: [0/2 (1658)]	batch_time 1.622 (1.622)	loss1 9.25778 (9.25778)	grad_norm1 22.08328 (22.08328)	loss2 0.98309 (0.98309)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 4.896e-06 (4.896e-06)	RemainingTime 0:44:23 (2026-03-21 06:47:35)	FPS  39.463
+2026-03-21 06:03:14,415:INFO:Iter: [18/829]	Epoch: [0/2 (1658)]	batch_time 1.613 (1.613)	loss1 9.43207 (9.43207)	grad_norm1 14.93694 (14.93694)	loss2 0.98672 (0.98672)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 5.125e-06 (5.125e-06)	RemainingTime 0:44:06 (2026-03-21 06:47:20)	FPS  39.686
+2026-03-21 06:03:16,030:INFO:Iter: [19/829]	Epoch: [0/2 (1658)]	batch_time 1.615 (1.615)	loss1 9.28706 (9.28706)	grad_norm1 21.34970 (21.34970)	loss2 0.98209 (0.98209)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 5.355e-06 (5.355e-06)	RemainingTime 0:44:08 (2026-03-21 06:47:24)	FPS  39.631
+2026-03-21 06:03:17,643:INFO:Iter: [20/829]	Epoch: [0/2 (1658)]	batch_time 1.613 (1.613)	loss1 9.31853 (9.31853)	grad_norm1 11.40432 (11.40432)	loss2 0.98238 (0.98238)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 5.584e-06 (5.584e-06)	RemainingTime 0:44:04 (2026-03-21 06:47:21)	FPS  39.680
+2026-03-21 06:03:19,261:INFO:Iter: [21/829]	Epoch: [0/2 (1658)]	batch_time 1.617 (1.617)	loss1 9.23837 (9.23837)	grad_norm1 12.89075 (12.89075)	loss2 0.98613 (0.98613)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 5.813e-06 (5.813e-06)	RemainingTime 0:44:09 (2026-03-21 06:47:28)	FPS  39.576
+2026-03-21 06:03:20,875:INFO:Iter: [22/829]	Epoch: [0/2 (1658)]	batch_time 1.614 (1.614)	loss1 9.26011 (9.26011)	grad_norm1 16.09588 (16.09588)	loss2 0.98157 (0.98157)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 6.042e-06 (6.042e-06)	RemainingTime 0:44:02 (2026-03-21 06:47:22)	FPS  39.657
+2026-03-21 06:03:22,489:INFO:Iter: [23/829]	Epoch: [0/2 (1658)]	batch_time 1.613 (1.613)	loss1 9.34069 (9.34069)	grad_norm1 11.13741 (11.13741)	loss2 0.99158 (0.99158)	grad_norm2 0.00000 (0.00000)	loss3 0.00000 (0.00000)	loss4 0.00000 (0.00000)	lr 6.271e-06 (6.271e-06)	RemainingTime 0:43:59 (2026-03-21 06:47:21)	FPS  39.674

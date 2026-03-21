@@ -12,6 +12,12 @@ from models import VLChatProcessor
 from torch.utils.data import Dataset, DataLoader
 import datasets
 
+from datasets import load_dataset
+import glob
+import os
+from PIL import Image
+from io import BytesIO
+
 
 def center_crop_arr(pil_image, image_size):
     while min(*pil_image.size) >= 2 * image_size:
@@ -43,11 +49,16 @@ class TextToImageDataset(Dataset):
         self.vl_chat_processor: VLChatProcessor = VLChatProcessor.from_pretrained(model_path)
         self.tokenizer = self.vl_chat_processor.tokenizer
 
-        # only for sam-llava-44k
+        # only for blip3o
 
-        t2i_metadata = datasets.load_dataset(
-            "parquet",
-            data_dir=data_path,
+        data_files = glob.glob(data_path)
+
+        t2i_metadata = load_dataset(
+            "webdataset",
+            data_files=data_files,
+            cache_dir='/inspire/hdd/project/exploration-topic/public/ent/download_dataset/cache/blip3o',
+            split="train",
+            num_proc=64
         )
         if isinstance(t2i_metadata, datasets.DatasetDict):
             if "train" in t2i_metadata:
@@ -64,9 +75,9 @@ class TextToImageDataset(Dataset):
     def __getitem__(self, idx):
         curdata = self.dataset[idx]
 
-        caption = curdata['caption']
+        caption = curdata['txt']
         prompt = caption
-        image = curdata["image"].convert("RGB")
+        image = curdata["jpg"].convert("RGB")
         image = self.gen_transform(image)
 
         conversation = [

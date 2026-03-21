@@ -1,0 +1,69 @@
+2026-03-21 03:33:37,579:INFO:Use bfloat16 training...
+2026-03-21 03:33:37,725:INFO:Args:
+2026-03-21 03:33:37,725:INFO:--> backend: nccl
+2026-03-21 03:33:37,725:INFO:--> init_method: tcp://127.0.0.1:51693
+2026-03-21 03:33:37,725:INFO:--> rank: 0
+2026-03-21 03:33:37,725:INFO:--> local_rank: 0
+2026-03-21 03:33:37,725:INFO:--> world_size: 8
+2026-03-21 03:33:37,725:INFO:--> yml_path: /inspire/hdd/project/exploration-topic/public/ent/TIFO/configs/t2i_generation.yml
+2026-03-21 03:33:37,725:INFO:--> pretrained_path: None
+2026-03-21 03:33:37,725:INFO:--> load_optimizer: 0
+2026-03-21 03:33:37,725:INFO:--> caption_shuffle_percent: 0
+2026-03-21 03:33:37,725:INFO:--> train_data_index: 0
+2026-03-21 03:33:37,725:INFO:--> local_shuffle_type: None
+2026-03-21 03:33:37,725:INFO:--> zip_max_split: 1024
+2026-03-21 03:33:37,725:INFO:--> visual_memory_format: contiguous_format
+2026-03-21 03:33:37,725:INFO:--> show_model_arch: 0
+2026-03-21 03:33:37,725:INFO:--> output_path: ./exp
+2026-03-21 03:33:37,725:INFO:--> log_interval: 100
+2026-03-21 03:33:37,725:INFO:--> save_per_epochs: 0.5
+2026-03-21 03:33:37,725:INFO:--> max_epochs: 3
+2026-03-21 03:33:37,726:INFO:--> warmup_epochs: 0.5
+2026-03-21 03:33:37,726:INFO:--> lr_scheduler: cosine
+2026-03-21 03:33:37,726:INFO:--> DATALOADER: CLIP_zip_dataloader
+2026-03-21 03:33:37,726:INFO:--> mode: trian
+2026-03-21 03:33:37,726:INFO:--> resume: 0
+2026-03-21 03:33:37,726:INFO:--> prefetch_factor: 2
+2026-03-21 03:33:37,726:INFO:--> lr: 0.0008
+2026-03-21 03:33:37,726:INFO:--> weight_decay: 0.0
+2026-03-21 03:33:37,726:INFO:--> label_smooth: 0.1
+2026-03-21 03:33:37,726:INFO:--> image_size: 224
+2026-03-21 03:33:37,726:INFO:--> num_workers: 6
+2026-03-21 03:33:37,726:INFO:--> tokenizer_type: bert_chinese
+2026-03-21 03:33:37,726:INFO:--> fix_inputs: 0
+2026-03-21 03:33:37,726:INFO:--> profile: 0
+2026-03-21 03:33:37,726:INFO:--> profile_skip_first: 5
+2026-03-21 03:33:37,726:INFO:--> profile_wait: 5
+2026-03-21 03:33:37,726:INFO:--> profile_warmup: 2
+2026-03-21 03:33:37,726:INFO:--> profile_active: 3
+2026-03-21 03:33:37,726:INFO:--> profile_repeat: 5
+2026-03-21 03:33:37,726:INFO:--> profile_step: 150
+2026-03-21 03:33:37,726:INFO:--> CRITERION: clip_loss_gather_parallel
+2026-03-21 03:33:37,726:INFO:--> beta1: 0.9
+2026-03-21 03:33:37,726:INFO:--> beta2: 0.96
+2026-03-21 03:33:37,727:INFO:--> embed_dim: 512
+2026-03-21 03:33:37,727:INFO:--> context_length: 80
+2026-03-21 03:33:37,727:INFO:--> eval_first: 0
+2026-03-21 03:33:37,727:INFO:--> eval_yml_path: 
+2026-03-21 03:33:37,727:INFO:--> do_multilabeling: 0
+2026-03-21 03:33:37,727:INFO:--> min_recall: 0.8
+2026-03-21 03:33:37,727:INFO:--> exclude: []
+2026-03-21 03:33:37,727:INFO:--> test_plan: []
+2026-03-21 03:33:37,727:INFO:--> thres: 0
+2026-03-21 03:33:37,727:INFO:--> ema: 0
+2026-03-21 03:33:37,727:INFO:--> ema_decay: 0.999
+2026-03-21 03:33:37,727:INFO:--> ema_multi_tensor_apply_chunk_size: 10000
+2026-03-21 03:33:37,727:INFO:--> user_id: 
+2026-03-21 03:33:37,727:INFO:--> deepspeed: False
+2026-03-21 03:33:37,727:INFO:--> deepspeed_config: None
+2026-03-21 03:33:37,727:INFO:--> deepscale: False
+2026-03-21 03:33:37,727:INFO:--> deepscale_config: None
+2026-03-21 03:33:37,727:INFO:--> DEVICE_TYPE: gpu
+2026-03-21 03:33:37,727:INFO:--> common: {'output_path': '/inspire/hdd/project/exploration-topic/public/ent/TIFO/ckpt/t2i_generation/14192281000.0', 'pre_path': '/inspire/hdd/project/exploration-topic/public/ent/TIFO/ckpt', 'log_path': '/inspire/hdd/project/exploration-topic/public/ent/TIFO/logs/t2i_generation/14192281000.0', 'save_per_iters': 1000, 'use_bf16': 1, 'use_fp16': 0, 'use_fsdp': 1, 'use_zero': 0, 'random_seed': 1024, 'log_interval': 1, 'machines': 1, 'task': 't2i'}
+2026-03-21 03:33:37,727:INFO:--> optimize: {'max_epochs': 2, 'warmup_epochs': 0.1, 'lr': 0.0001, 'lr_scheduler': 'cosine', 'optimizer': 'adamw', 'weight_decay': 0.05, 'betas': [0.9, 0.95], 'eps': 1e-06}
+2026-03-21 03:33:37,727:INFO:--> model: {'model_path': '/inspire/hdd/project/exploration-topic/public/downloaded_ckpts/Janus/Janus-Pro-7B', 'processor_path': '/inspire/hdd/project/exploration-topic/public/downloaded_ckpts/Janus/Janus-Pro-7B'}
+2026-03-21 03:33:37,732:INFO:--> dataloader: {'und_data_path': '/inspire/hdd/project/exploration-topic/public/ent/download_dataset/sam-llava-55k/data', 'gen_data_path': '/inspire/hdd/project/exploration-topic/public/ent/download_dataset/sam-llava-55k/data', 'num_workers': 4, 'prefetch_factor': 4, 'sampler_shuffle': False, 'tasks': [0, 1], 'train': {'use_local_shuffle': True, 'task1': {'batch_size': 8, 'sample_ratio': 10}, 'task2': {'batch_size': 8, 'sample_ratio': 0}}}
+2026-03-21 03:33:37,732:INFO:--> dataloader_len: 829
+2026-03-21 03:33:37,732:INFO:
+2026-03-21 03:33:37,742:INFO:Run configs dump to /inspire/hdd/project/exploration-topic/public/ent/TIFO/ckpt/t2i_generation/14192281000.0/run.yml
+2026-03-21 03:33:42,221:INFO:Finish training, total time: 0:00:00

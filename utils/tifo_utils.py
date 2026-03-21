@@ -5,8 +5,6 @@ from functools import partial
 from turtle import forward
 from typing import Optional, Tuple, Union
 
-from IPython import embed
-from sympy import N
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -81,6 +79,8 @@ class CrossAttention(nn.Module):
     def forward(self, q, ca_kv):
         kv_compact, cu_seqlens_k, max_seqlen_k = ca_kv
         N = kv_compact.shape[0]
+
+        kv_compact = kv_compact / (kv_compact.norm(dim=-1, keepdim=True).clamp(min=1.0))
 
         kv_compact = F.linear(
             kv_compact,
@@ -170,7 +170,12 @@ class SlotsAdapter(nn.Module):
             num_heads=self.num_heads
         )
     def forward(self, ca_kv):
-        return self.ca(None, ca_kv)
+        kv_compact, cu_seqlens_k, max_seqlen_k = ca_kv
+        print("kv_compact finite:", kv_compact.isfinite().all().item())
+        print("kv_compact stats:", kv_compact.abs().max().item(), kv_compact.abs().mean().item())
+        result = self.ca(None, ca_kv)
+        print("ca output finite:", result.isfinite().all().item())
+        return result
 
 
 # 让每个slot不要太像
@@ -189,3 +194,170 @@ def calculate_div_loss(slots):
 
     div_loss = (off_diag ** 2).mean()
     return div_loss
+
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class StableSlotsAdapter(nn.Module):
+    def __init__(
+        self,
+        embed_dim: int,
+        num_slots: int = 6,
+        num_heads: int = 32,
+        mlp_ratio: float = 2.0,
+        qkv_bias: bool = False,
+        dropout: float = 0.0,
+        slot_init_scale: float = 0.02,
+        use_ffn: bool = True,
+        attn_fp32: bool = True,
+        debug: bool = False,
+    ):
+        super().__init__()
+        assert embed_dim % num_heads == 0
+        self.embed_dim = embed_dim
+        self.num_slots = num_slots
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+        self.scale = 1.0 / math.sqrt(self.head_dim)
+        self.attn_fp32 = attn_fp32
+        self.use_ffn = use_ffn
+        self.debug = debug
+
+        # learnable slots, 小初始化
+        self.slots = nn.Parameter(torch.randn(1, num_slots, embed_dim) * slot_init_scale)
+
+        # pre-norm
+        self.norm_x = nn.LayerNorm(embed_dim)
+        self.norm_slots = nn.LayerNorm(embed_dim)
+
+        # q, k, v projection
+        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias)
+        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias)
+        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias)
+
+        # output proj
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True)
+        self.out_drop = nn.Dropout(dropout)
+
+        # optional FFN block
+        if use_ffn:
+            hidden_dim = int(embed_dim * mlp_ratio)
+            self.ffn_norm = nn.LayerNorm(embed_dim)
+            self.ffn = nn.Sequential(
+                nn.Linear(embed_dim, hidden_dim),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_dim, embed_dim),
+                nn.Dropout(dropout),
+            )
+
+    def _stats(self, name, x):
+        if not self.debug:
+            return
+        xf = x.float()
+        print(
+            f"[{name}] shape={tuple(x.shape)} dtype={x.dtype} "
+            f"finite={torch.isfinite(x).all().item()} "
+            f"nan={torch.isnan(x).any().item()} "
+            f"inf={torch.isinf(x).any().item()} "
+            f"min={xf.min().item():.6e} "
+            f"max={xf.max().item():.6e} "
+            f"mean={xf.mean().item():.6e} "
+            f"std={xf.std().item():.6e}"
+        )
+
+    def forward(self, x, attention_mask=None):
+        """
+        x: [B, L, C]
+        attention_mask: [B, L], 1 for valid, 0 for padding
+        """
+        B, L, C = x.shape
+        assert C == self.embed_dim
+
+        dtype_in = x.dtype
+        device = x.device
+
+        self._stats("input_x", x)
+
+        # pre-norm
+        x_norm = self.norm_x(x)
+        slots = self.slots.expand(B, -1, -1)
+        slots_norm = self.norm_slots(slots)
+
+        self._stats("x_norm", x_norm)
+        self._stats("slots_param", self.slots)
+        self._stats("slots_norm", slots_norm)
+
+        # qkv projection
+        q = self.q_proj(slots_norm)   # [B, K, C]
+        k = self.k_proj(x_norm)       # [B, L, C]
+        v = self.v_proj(x_norm)       # [B, L, C]
+
+        self._stats("q_proj", q)
+        self._stats("k_proj", k)
+        self._stats("v_proj", v)
+
+        # reshape to attention format
+        q = q.view(B, self.num_slots, self.num_heads, self.head_dim).transpose(1, 2)  # [B, H, K, Dh]
+        k = k.view(B, L, self.num_heads, self.head_dim).transpose(1, 2)               # [B, H, L, Dh]
+        v = v.view(B, L, self.num_heads, self.head_dim).transpose(1, 2)               # [B, H, L, Dh]
+
+        self._stats("q_before_attn", q)
+        self._stats("k_before_attn", k)
+        self._stats("v_before_attn", v)
+
+        # attention mask -> key padding mask
+        attn_mask = None
+        if attention_mask is not None:
+            # attention_mask: [B, L] -> [B, 1, 1, L]
+            attn_mask = attention_mask[:, None, None, :].to(torch.bool)
+
+        # 用 fp32 做 attention，稳定很多
+        if self.attn_fp32:
+            q_attn = q.float()
+            k_attn = k.float()
+            v_attn = v.float()
+        else:
+            q_attn = q
+            k_attn = k
+            v_attn = v
+
+        if attn_mask is not None:
+            # scaled_dot_product_attention 里 True 表示参与，False 表示mask掉
+            out = F.scaled_dot_product_attention(
+                q_attn,
+                k_attn,
+                v_attn,
+                attn_mask=attn_mask,
+                dropout_p=0.0,
+                is_causal=False,
+            )
+        else:
+            out = F.scaled_dot_product_attention(
+                q_attn,
+                k_attn,
+                v_attn,
+                attn_mask=None,
+                dropout_p=0.0,
+                is_causal=False,
+            )
+
+        self._stats("attn_out", out)
+
+        # [B, H, K, Dh] -> [B, K, C]
+        out = out.transpose(1, 2).contiguous().view(B, self.num_slots, C)
+        out = out.to(dtype_in)
+
+        # residual 1
+        slots = slots + self.out_drop(self.out_proj(out))
+        self._stats("after_residual1", slots)
+
+        # residual 2: FFN
+        if self.use_ffn:
+            slots = slots + self.ffn(self.ffn_norm(slots))
+            self._stats("after_ffn", slots)
+
+        return slots

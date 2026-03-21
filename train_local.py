@@ -36,9 +36,18 @@ if __name__ == "__main__":
     now_time = torch.from_numpy(np.array(int(time.time()))).float().cuda()
     dist.all_reduce(now_time)
     
-    cfg.common.output_path = os.path.join(cfg.common.output_path, cfg.yml_path, str(now_time.cpu().numpy()))
-    cfg.common.log_path = os.path.join(cfg.common.log_path, cfg.yml_path, str(now_time.cpu().numpy()))
+    # cfg.common.output_path = os.path.join(cfg.common.output_path, cfg.yml_path, str(now_time.cpu().numpy()))
+    # cfg.common.log_path = os.path.join(cfg.common.log_path, cfg.yml_path, str(now_time.cpu().numpy()))
+    exp_name = os.path.splitext(os.path.basename(cfg.yml_path))[0]
 
+    cfg.common.output_path = os.path.join(
+        cfg.common.output_path, exp_name, str(now_time.cpu().numpy())
+    )
+    cfg.common.log_path = os.path.join(
+        cfg.common.log_path, exp_name, str(now_time.cpu().numpy())
+    )
+
+    print(f"logdir:{cfg.common.log_path}")
     logger.setup_logging_file(cfg.common.log_path, cfg.rank)
     Trainer, hook_list = setup_task(cfg=cfg, is_root=is_root)
     Trainer.register_hooks(hook_list)

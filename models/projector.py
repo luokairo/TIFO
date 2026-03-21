@@ -21,7 +21,9 @@ from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
-from attrdict import AttrDict
+# from attrdict import AttrDict
+from easydict import EasyDict as AttrDict
+
 
 
 class MlpProjector(nn.Module):

@@ -19,7 +19,8 @@
 
 from sympy import use
 import torch
-from attrdict import AttrDict
+# from attrdict import AttrDict
+from easydict import EasyDict as AttrDict
 from einops import rearrange
 from transformers import (
     AutoConfig,
@@ -33,7 +34,7 @@ import torch.nn as nn
 from .clip_encoder import CLIPVisionTower
 from .projector import MlpProjector
 import torch.nn.functional as F
-from ..utils.tifo_utils import SlotsAdapter, calculate_div_loss, pack_kv
+from utils.tifo_utils import SlotsAdapter, calculate_div_loss, pack_kv, StableSlotsAdapter
 
 class vision_head(torch.nn.Module):
     def __init__(self, params):
@@ -272,12 +273,12 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         self.language_model = LlamaForCausalLM(language_config)
 
         # for tifo
-        self.vision_slots_adapter = SlotsAdapter(vision_config.params.n_embed, num_slots=6)
-        self.text_slots_adapter = SlotsAdapter(vision_config.params.n_embed, num_slots=6)
+        self.vision_slots_adapter = StableSlotsAdapter(aligner_config.params.n_embed, num_slots=6)
+        self.text_slots_adapter = StableSlotsAdapter(aligner_config.params.n_embed, num_slots=6)
         self.text_conductor = TextAdapter(
-            input_dim=vision_config.params.n_embed,
-            hidden_dim=vision_config.params.n_embed // 2,
-            out_dim=vision_config.params.n_embed,
+            input_dim=aligner_config.params.n_embed,
+            hidden_dim=aligner_config.params.n_embed // 2,
+            out_dim=aligner_config.params.n_embed,
 
         )
        
@@ -324,7 +325,7 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         return inputs_embeds
 
     def forward(self, input_ids, attention_mask, labels=None, image1=None, image_seq_mask=None, image2=None, task_type=0, front=None, end=None, use_attn=False):
-        if task_type == 0:
+        if task_type == 2:
             input_embeds = self.language_model.get_input_embeddings()(input_ids)
             # tifo: conduct information
             input_embeds = self.text_conductor(input_embeds)
@@ -423,16 +424,16 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
                         full_attn_loss = full_attn_loss + attn_loss * 0
             loss_attn = full_attn_loss / (len(full_attention) * len(full_attention[2]))
             loss = loss_ntp + 10 * loss_attn
-        elif task_type == 2:
+        elif task_type == 0:
             und_image_embeds, _ = self.prepare_embedding(image1, gen_image=False)
             input_embeds = self.language_model.get_input_embeddings()(input_ids)
             # tifo: conduct information
             input_embeds = self.text_conductor(input_embeds)
-            text_ca_kv = pack_kv(input_embeds)          # input_embeds: [B, Lt, C]
-            vision_ca_kv = pack_kv(und_image_embeds)    # und_image_embeds: [B, Lv, C]
+            # text_ca_kv = pack_kv(input_embeds)          # input_embeds: [B, Lt, C]
+            # vision_ca_kv = pack_kv(und_image_embeds)    # und_image_embeds: [B, Lv, C]
 
-            text_slots = self.text_slots_adapter(text_ca_kv)        # [B, K, C]
-            vision_slots = self.vision_slots_adapter(vision_ca_kv)  # [B, K, C]
+            text_slots = self.text_slots_adapter(input_embeds, attention_mask=attention_mask)        # [B, K, C]
+            vision_slots = self.vision_slots_adapter(und_image_embeds, attention_mask=None)  # [B, K, C]
 
             text_slots_norm = F.normalize(text_slots, dim=-1)
             vision_slots_norm = F.normalize(vision_slots.detach(), dim=-1)
@@ -447,7 +448,7 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             attention_mask = torch.cat((attention_mask, torch.ones((B, L)).long().to(attention_mask.device)), dim=1)
             label_len = labels.shape[-1]
             outputs = self.language_model.model(inputs_embeds=input_embeds, 
-                                                    attention_mask=attention_mask, output_attentions=True, return_dict_in_generate=True)
+                                                    attention_mask=attention_mask, output_attentions=False, return_dict_in_generate=True)
             last_hidden_state = outputs.last_hidden_state
             full_attention = outputs.attentions
 
@@ -456,14 +457,14 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             shift_logits = image_logits[..., -1-label_len:-1, :].contiguous()
             loss_ntp = self.loss_fct(shift_logits.view(-1, visual_vocab_size), labels.view(-1))
 
-            loss = loss_ntp + 0.2 * loss_slot + 0.1 * loss_div
+            loss = loss_ntp + 0.05 * loss_slot + 0.02 * loss_div
 
 
 
         else:
             raise NotImplementedError
             
-        return loss
+        return loss, loss_slot
 
     def prepare_embedding(
         self,
