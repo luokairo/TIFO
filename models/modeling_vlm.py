@@ -36,15 +36,34 @@ from .projector import MlpProjector
 import torch.nn.functional as F
 from utils.tifo_utils import SlotsAdapter, calculate_div_loss, pack_kv, StableSlotsAdapter
 
+def suppress_high_freq(x, alpha=2.0):
+    # x: [B, N, C]
+    B, N, C = x.shape
+    H = W = int(N ** 0.5)
+    assert H * W == N
 
-def high_pass_mask(H, W, cutoff=0.1):
-    y, x = torch.meshgrid(
-        torch.linspace(-1, 1, H),
-        torch.linspace(-1, 1, W)
+    x = x.view(B, H, W, C)
+
+    x_freq = torch.fft.fft2(x, dim=(1, 2))
+    x_freq = torch.fft.fftshift(x_freq, dim=(1, 2))
+
+    yy, xx = torch.meshgrid(
+        torch.linspace(-1, 1, H, device=x.device),
+        torch.linspace(-1, 1, W, device=x.device),
+        indexing="ij"
     )
-    dist = torch.sqrt(x**2 + y**2)
-    mask = (dist > cutoff).float()
-    return mask
+    dist = torch.sqrt(xx ** 2 + yy ** 2)
+
+    # 越高频，权重越小
+    weight = 1.0 / (1.0 + alpha * dist ** 2)
+    weight = weight[None, :, :, None]
+
+    x_freq = x_freq * weight
+
+    x_freq = torch.fft.ifftshift(x_freq, dim=(1, 2))
+    x = torch.fft.ifft2(x_freq, dim=(1, 2)).real
+
+    return x.view(B, N, C)
 
 class vision_head(torch.nn.Module):
     def __init__(self, params):
@@ -443,24 +462,14 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             # vision_ca_kv = pack_kv(und_image_embeds)    # und_image_embeds: [B, Lv, C]
 
             # FFT
-            B, N, C = und_image_embeds.shape
-            H = W = int(N ** 0.5)
-            x = und_image_embeds.view(B, H, W, C)
-            
-            x_freq = torch.fft.fft2(x, dim=(1, 2))   # [B, H, W, C]
-            x_freq = torch.fft.fftshift(x_freq, dim=(1, 2))
-
-            mask = high_pass_mask(H, W, cutoff=0.2).to(x.device)
-            mask = mask[None, :, :, None]
-            x_freq_filtered = x_freq * mask
-
-            x_filtered = torch.fft.ifftshift(x_freq_filtered, dim=(1, 2))
-            x_filtered = torch.fft.ifft2(x_filtered, dim=(1, 2)).real
-            und_image_embeds_filtered = x_filtered.view(B, N, C)
+            vision_sem_embeds = suppress_high_freq(und_image_embeds, alpha=2.0)
 
             text_slots = self.text_slots_adapter(input_embeds, attention_mask=attention_mask)        # [B, K, C]
             # vision_slots = self.vision_slots_adapter(und_image_embeds, attention_mask=None)  # [B, K, C]
-            vision_slots = self.vision_slots_adapter(und_image_embeds_filtered, attention_mask=None)  # [B, K, C]
+            vision_slots = self.vision_slots_adapter(
+                vision_sem_embeds,
+                attention_mask=None
+            )
 
             text_slots_norm = F.normalize(text_slots, dim=-1)
             vision_slots_norm = F.normalize(vision_slots.detach(), dim=-1)
