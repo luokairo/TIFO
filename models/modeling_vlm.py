@@ -36,6 +36,16 @@ from .projector import MlpProjector
 import torch.nn.functional as F
 from utils.tifo_utils import SlotsAdapter, calculate_div_loss, pack_kv, StableSlotsAdapter
 
+
+def high_pass_mask(H, W, cutoff=0.1):
+    y, x = torch.meshgrid(
+        torch.linspace(-1, 1, H),
+        torch.linspace(-1, 1, W)
+    )
+    dist = torch.sqrt(x**2 + y**2)
+    mask = (dist > cutoff).float()
+    return mask
+
 class vision_head(torch.nn.Module):
     def __init__(self, params):
         super().__init__()
@@ -432,12 +442,29 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             # text_ca_kv = pack_kv(input_embeds)          # input_embeds: [B, Lt, C]
             # vision_ca_kv = pack_kv(und_image_embeds)    # und_image_embeds: [B, Lv, C]
 
+            # FFT
+            B, N, C = und_image_embeds.shape
+            H = W = int(N ** 0.5)
+            x = und_image_embeds.view(B, H, W, C)
+            
+            x_freq = torch.fft.fft2(x, dim=(1, 2))   # [B, H, W, C]
+            x_freq = torch.fft.fftshift(x_freq, dim=(1, 2))
+
+            mask = high_pass_mask(H, W, cutoff=0.2).to(x.device)
+            mask = mask[None, :, :, None]
+            x_freq_filtered = x_freq * mask
+
+            x_filtered = torch.fft.ifftshift(x_freq_filtered, dim=(1, 2))
+            x_filtered = torch.fft.ifft2(x_filtered, dim=(1, 2)).real
+            und_image_embeds_filtered = x_filtered.view(B, N, C)
+
             text_slots = self.text_slots_adapter(input_embeds, attention_mask=attention_mask)        # [B, K, C]
-            vision_slots = self.vision_slots_adapter(und_image_embeds, attention_mask=None)  # [B, K, C]
+            # vision_slots = self.vision_slots_adapter(und_image_embeds, attention_mask=None)  # [B, K, C]
+            vision_slots = self.vision_slots_adapter(und_image_embeds_filtered, attention_mask=None)  # [B, K, C]
 
             text_slots_norm = F.normalize(text_slots, dim=-1)
             vision_slots_norm = F.normalize(vision_slots.detach(), dim=-1)
-            loss_div = calculate_div_loss(text_slots)
+            loss_div = calculate_div_loss(vision_slots)
 
             loss_slot = 1 - (text_slots_norm * vision_slots_norm).sum(dim=-1).mean()
 
@@ -457,7 +484,8 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             shift_logits = image_logits[..., -1-label_len:-1, :].contiguous()
             loss_ntp = self.loss_fct(shift_logits.view(-1, visual_vocab_size), labels.view(-1))
 
-            loss = loss_ntp + 0.05 * loss_slot + 0.02 * loss_div
+            # loss = loss_ntp + 0.05 * loss_slot + 0.01 * loss_div
+            loss = loss_ntp + 0.15 * loss_slot + 0.05 * loss_div
 
 
 
