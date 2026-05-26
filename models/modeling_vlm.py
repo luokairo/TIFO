@@ -19,8 +19,7 @@
 
 from sympy import use
 import torch
-# from attrdict import AttrDict
-from easydict import EasyDict as AttrDict
+from attrdict import AttrDict
 from einops import rearrange
 from transformers import (
     AutoConfig,
@@ -34,36 +33,9 @@ import torch.nn as nn
 from .clip_encoder import CLIPVisionTower
 from .projector import MlpProjector
 import torch.nn.functional as F
-from utils.tifo_utils import SlotsAdapter, calculate_div_loss, pack_kv, StableSlotsAdapter
-
-def suppress_high_freq(x, alpha=2.0):
-    # x: [B, N, C]
-    B, N, C = x.shape
-    H = W = int(N ** 0.5)
-    assert H * W == N
-
-    x = x.view(B, H, W, C)
-
-    x_freq = torch.fft.fft2(x, dim=(1, 2))
-    x_freq = torch.fft.fftshift(x_freq, dim=(1, 2))
-
-    yy, xx = torch.meshgrid(
-        torch.linspace(-1, 1, H, device=x.device),
-        torch.linspace(-1, 1, W, device=x.device),
-        indexing="ij"
-    )
-    dist = torch.sqrt(xx ** 2 + yy ** 2)
-
-    # 越高频，权重越小
-    weight = 1.0 / (1.0 + alpha * dist ** 2)
-    weight = weight[None, :, :, None]
-
-    x_freq = x_freq * weight
-
-    x_freq = torch.fft.ifftshift(x_freq, dim=(1, 2))
-    x = torch.fft.ifft2(x_freq, dim=(1, 2)).real
-
-    return x.view(B, N, C)
+from .text_conductor import DualPathGatedTextConductor
+from .fourier_block import AdaptiveFourierBlock
+from .slots_adapter import IterativeGatedSlotAdapter
 
 class vision_head(torch.nn.Module):
     def __init__(self, params):
@@ -212,54 +184,6 @@ class MultiModalityConfig(PretrainedConfig):
             self.language_config = LlamaConfig(**language_config)
 
 
-class TextAdapter(nn.Module):
-    def __init__(
-        self, 
-        input_dim: int,
-        hidden_dim: int,
-        out_dim: int = None,
-        dropout: float = 0.0,
-        use_residual: bool = True,
-    ):
-        super().__init__()
-
-        if out_dim is None:
-            out_dim = input_dim
-
-        self.use_residual = use_residual
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.act = nn.GELU()
-        self.fc2 = nn.Linear(hidden_dim, out_dim)
-
-        self.dropout = nn.Dropout(dropout)
-
-        self.norm = nn.LayerNorm(out_dim)
-
-    def forward(self, x):
-        """
-        x: [B, N, C] 或 [B, C]
-        """
-        residual = x
-
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.dropout(x)
-
-        x = self.fc2(x)
-        x = self.dropout(x)
-
-        # residual connection
-        if self.use_residual:
-            x = x + residual
-
-        x = self.norm(x)
-
-        return x
-        
-
-
-
-
 class MultiModalityPreTrainedModel(PreTrainedModel):
     config_class = MultiModalityConfig
     base_model_prefix = "multi_modality"
@@ -301,14 +225,29 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         # language_config._attn_implementation = 'flash_attention_2'
         self.language_model = LlamaForCausalLM(language_config)
 
-        # for tifo
-        self.vision_slots_adapter = StableSlotsAdapter(aligner_config.params.n_embed, num_slots=6)
-        self.text_slots_adapter = StableSlotsAdapter(aligner_config.params.n_embed, num_slots=6)
-        self.text_conductor = TextAdapter(
-            input_dim=aligner_config.params.n_embed,
-            hidden_dim=aligner_config.params.n_embed // 2,
-            out_dim=aligner_config.params.n_embed,
-
+        # for tifo (GOAT-enhanced sub-modules)
+        n_embed = vision_config.params.n_embed
+        self.text_conductor = DualPathGatedTextConductor(
+            dim=n_embed,
+            mlp_ratio=4,
+            num_heads=8,
+        )
+        self.vision_fourier = AdaptiveFourierBlock(
+            dim=n_embed,
+            spatial_dims=1,
+            use_band_split=False,
+        )
+        self.vision_slots_adapter = IterativeGatedSlotAdapter(
+            dim=n_embed,
+            num_slots=6,
+            num_iters=2,
+            use_slot_self_attn=True,
+        )
+        self.text_slots_adapter = IterativeGatedSlotAdapter(
+            dim=n_embed,
+            num_slots=6,
+            num_iters=2,
+            use_slot_self_attn=True,
         )
        
 
@@ -456,26 +395,26 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         elif task_type == 0:
             und_image_embeds, _ = self.prepare_embedding(image1, gen_image=False)
             input_embeds = self.language_model.get_input_embeddings()(input_ids)
-            # tifo: conduct information
+            # tifo: conduct information (dual-path gated text conductor)
             input_embeds = self.text_conductor(input_embeds)
-            # text_ca_kv = pack_kv(input_embeds)          # input_embeds: [B, Lt, C]
-            # vision_ca_kv = pack_kv(und_image_embeds)    # und_image_embeds: [B, Lv, C]
 
-            # FFT
-            vision_sem_embeds = suppress_high_freq(und_image_embeds, alpha=2.0)
+            # tifo: adaptive spectral filter on visual features before slot extraction
+            und_image_feats = self.vision_fourier(und_image_embeds)  # [B, Lv, C]
 
-            text_slots = self.text_slots_adapter(input_embeds, attention_mask=attention_mask)        # [B, K, C]
-            # vision_slots = self.vision_slots_adapter(und_image_embeds, attention_mask=None)  # [B, K, C]
-            vision_slots = self.vision_slots_adapter(
-                vision_sem_embeds,
-                attention_mask=None
-            )
+            text_slots = self.text_slots_adapter(input_embeds)       # [B, K, C]
+            vision_slots = self.vision_slots_adapter(und_image_feats)  # [B, K, C]
 
+            # L_slot: 1 - mean cosine between text slot and (detached) visual slot (GOAT Eq. 9)
             text_slots_norm = F.normalize(text_slots, dim=-1)
             vision_slots_norm = F.normalize(vision_slots.detach(), dim=-1)
-            loss_div = calculate_div_loss(vision_slots)
+            loss_slot = 1.0 - (text_slots_norm * vision_slots_norm).sum(dim=-1).mean()
 
-            loss_slot = 1 - (text_slots_norm * vision_slots_norm).sum(dim=-1).mean()
+            # L_div: penalize squared off-diagonal pairwise cosine between text slots (GOAT Eq. 10)
+            sim_mat = torch.einsum('bkd,bjd->bkj', text_slots_norm, text_slots_norm)
+            K_slots = sim_mat.size(-1)
+            eye = torch.eye(K_slots, device=sim_mat.device).unsqueeze(0)
+            off_diag = sim_mat * (1.0 - eye)
+            loss_div = (off_diag ** 2).sum() / (text_slots.size(0) * K_slots * (K_slots - 1))
 
             image_embeds, labels = self.prepare_embedding(image1)
             input_embeds = torch.cat((input_embeds, image_embeds), dim=1)
@@ -484,7 +423,7 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             attention_mask = torch.cat((attention_mask, torch.ones((B, L)).long().to(attention_mask.device)), dim=1)
             label_len = labels.shape[-1]
             outputs = self.language_model.model(inputs_embeds=input_embeds, 
-                                                    attention_mask=attention_mask, output_attentions=False, return_dict_in_generate=True)
+                                                    attention_mask=attention_mask, output_attentions=True, return_dict_in_generate=True)
             last_hidden_state = outputs.last_hidden_state
             full_attention = outputs.attentions
 
@@ -493,15 +432,12 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             shift_logits = image_logits[..., -1-label_len:-1, :].contiguous()
             loss_ntp = self.loss_fct(shift_logits.view(-1, visual_vocab_size), labels.view(-1))
 
-            # loss = loss_ntp + 0.05 * loss_slot + 0.01 * loss_div
-            loss = loss_ntp + 0.15 * loss_slot + 0.05 * loss_div
-
-
+            loss = loss_ntp + 0.2 * loss_slot + 0.1 * loss_div
 
         else:
             raise NotImplementedError
             
-        return loss, loss_slot
+        return loss
 
     def prepare_embedding(
         self,
