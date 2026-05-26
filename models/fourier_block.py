@@ -1,20 +1,3 @@
-"""Module 2: Adaptive Spectral Fourier Block.
-
-Replaces the original fixed frequency mask M with an input-conditioned
-dynamic mask M_dyn computed from the amplitude spectrum of the input.
-
-Pipeline:
-    1. FFT:        Fv = F(V_u)
-    2. Amplitude:  amp = |Fv|
-    3. Global pool over spatial dims:  amp_stat = AvgPool(amp)      ∈ R^d
-    4. Dynamic mask:                   M_dyn = sigmoid(MLP(amp_stat))
-    5. Multiply in freq domain:        Fv_filtered = M_dyn ⊙ Fv
-    6. Inverse FFT:                    V_bar = F^-1(Fv_filtered)
-
-Optional: `use_band_split=True` splits the frequency plane into N radial
-bands (low / mid / high freq) and learns a per-band, per-channel weight.
-"""
-
 import torch
 import torch.nn as nn
 

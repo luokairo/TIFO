@@ -1,21 +1,3 @@
-"""Module 1: Dual-Path Gated Text Conductor.
-
-Replaces the original 2-layer MLP adapter with two parallel pathways:
-  - Local path:  per-token MLP (preserves the original MLP's role)
-  - Global path: multi-head self-attention (captures cross-token relations)
-
-The two paths are fused by a per-token, per-dim gate g that is conditioned
-on BOTH the token itself AND a global sequence summary. This lets relational
-tokens (e.g. "to the left of") get more global context while content tokens
-(e.g. "red apple") stay local.
-
-Math (per layer):
-    T_local  = W2 · GELU(W1 · T)
-    T_global = MHA(LN(T))
-    g        = sigmoid(W_g · [T, mean(T)])              # ∈ [0,1]^(L×d)
-    T̃        = LN(T + g ⊙ T_local + (1-g) ⊙ T_global)
-"""
-
 import torch
 import torch.nn as nn
 

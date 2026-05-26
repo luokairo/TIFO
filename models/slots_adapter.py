@@ -1,22 +1,3 @@
-"""Module 3: Iterative Gated Slot Adapter.
-
-Replaces a single-pass Q-Former cross-attention with the original
-Slot Attention mechanism (Locatello et al. 2020), enhanced with:
-  - Slot-competitive attention: softmax over the SLOT dim (not feature dim)
-  - T iterations of refinement
-  - GRU-style gated state update per iteration
-  - Optional inter-slot self-attention (slot↔slot coordination)
-
-==========================================================================
-The single most important change vs the original GOAT Q-Former:
-==========================================================================
-    Original Q-Former:  A = softmax(QK^T / sqrt(d), dim=-1)   # over L
-    Ours (Slot-Attn):   A = softmax(QK^T / sqrt(d), dim=1)    # over K
-
-    With softmax over K, Σ_k A[k,l] = 1, so every visual feature must
-    be "claimed" by some slot → slots compete and specialize.
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
